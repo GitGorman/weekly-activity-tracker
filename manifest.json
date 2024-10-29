@@ -1,11 +1,10 @@
 {
-	"id": "activity-tracker",
-	"name": "Activity Tracker",
+	"id": "weekly-goal-tracker",
+	"name": "Weekly Goal Tracker",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
+	"description": "Keep track of weekly goals in the status bar",
 	"author": "George Gorman",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"authorUrl": "https://github.com/GitGorman",
 	"isDesktopOnly": true
 }
