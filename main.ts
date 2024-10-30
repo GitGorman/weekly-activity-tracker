@@ -144,10 +144,10 @@ export default class ActivityTracker extends Plugin {
 	//used to get the value from the frontmatter
 	async GetValue(metadataValue : string, mondayFile : TFile) : Promise<string> {
 		//read all the data from the file
-		var fileData = await this.app.vault.read(mondayFile);
+		let fileData = await this.app.vault.read(mondayFile);
 
 		//split the file into an array of lines
-		var fileDataArray = fileData.split('\n');
+		let  fileDataArray = fileData.split('\n');
 
 		let value = "";
 		//foreach line in the file
