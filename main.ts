@@ -9,24 +9,29 @@ export default class ActivityTracker extends Plugin {
 			await this.loadSettings();
 			this.addSettingTab(new ActivityTrackerTab(this.app, this));
 
-			//find the file that contains the data
-			let files = this.app.vault.getMarkdownFiles();
-			let mondayFileName = moment().startOf('isoWeek').format("YYYY-MM-DD").toString()+".md";
-			let mondayFile = files.find((x: { name: string; }) => x.name == mondayFileName);
-
-			//if the file exists
-			if (mondayFile) {
-				//create an activity button for each activity in the settings tab
-				this.settings.activities.forEach(async (a) => {
-					await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, mondayFile);
-				})
-			}
+			this.createActivities();
 		});
+	}
+
+	async createActivities() {
+		//find the file that contains the data
+		let files = this.app.vault.getMarkdownFiles();
+		let mondayFileName = moment().startOf('isoWeek').format("YYYY-MM-DD").toString()+".md";
+		let mondayFile = files.find((x: { name: string; }) => x.name == mondayFileName);
+
+		//if the file exists
+		if (mondayFile) {
+			//create an activity button for each activity in the settings tab
+			this.settings.activities.forEach(async (a) => {
+				await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, mondayFile);
+			})
+		}
 	}
 
 	async createActivity(metadataValue : string, emoji : string, maxValue : number, startColor : string, endColor : string, mondayFile : TFile) {
 		//create status bar element
 		let statusBarButton = this.addStatusBarItem().createEl('button');
+		statusBarButton.addClass("statusBarButton");
 
 		//when the button is left clicked
 		statusBarButton.addEventListener('click', async () => {	
@@ -104,7 +109,7 @@ export default class ActivityTracker extends Plugin {
 		//displaying the button when it is closed
 		let generateButtonTextNoBoxes = (textValue : string) => {		
 			//add the emoji and the current/max
-			statusBarButton.setText(emoji+`${textValue}/${maxValue} `);	
+			statusBarButton.setText(emoji+(this.settings.hideWhenClosed?``:`${textValue}/${maxValue} `));	
 			
 			//if the goal has been reached, display in color, otherwise in gray
 			if (parseInt(textValue) >= maxValue) {
@@ -198,10 +203,12 @@ export class Activity {
 
 interface ActivityTrackerSettings {
 	activities : Array<Activity>;
+	hideWhenClosed : boolean;
 }
 
 const DEFAULT_SETTINGS: Partial<ActivityTrackerSettings> = {
 	activities: [new Activity("","","","","")],
+	hideWhenClosed: false,
 }
 
 export class ActivityTrackerTab extends PluginSettingTab {
@@ -218,6 +225,19 @@ export class ActivityTrackerTab extends PluginSettingTab {
 	  	containerEl.empty();
 	  	containerEl.createEl("p", { text: `NOTE Changes are not applied until reload` });
 
+		new Setting(containerEl)
+			.setName('Hide numbers when button is closed?')
+		  	.addToggle((toggle) =>
+			toggle
+			  	.setValue(this.plugin.settings.hideWhenClosed)
+			  	.onChange(async (value) => {
+					this.plugin.settings.hideWhenClosed = value;
+					await this.plugin.saveSettings();
+			  })
+		  );		
+
+		containerEl.createEl("h1", { text: `Activities` });
+		
 	  	this.plugin.settings.activities.map((activity, index) => {
 			new Setting(containerEl)
       			.setName('Frontmatter value')
