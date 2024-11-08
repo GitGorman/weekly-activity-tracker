@@ -236,7 +236,7 @@ export class ActivityTrackerTab extends PluginSettingTab {
 			  })
 		  );		
 
-		containerEl.createEl("h1", { text: `Activities` });
+		new Setting(containerEl).setName('Activities').setHeading();
 		
 	  	this.plugin.settings.activities.map((activity, index) => {
 			new Setting(containerEl)
