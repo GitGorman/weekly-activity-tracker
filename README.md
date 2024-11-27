@@ -20,8 +20,3 @@ This is a plugin for [Obsidian](https://obsidian.md) that allows you to add butt
 - Icon : the icon displayed in the status bar button. I recommend using [Emojipedia](https://emojipedia.org/) to find icons
 - Goal : the weekly goal for activity
 - Start color/end color : the gradient color for the status bar button, from left to right
-
-## Help
-If the frontmatter value does not exist in that week's Monday file, an error will be displayed and the button will go red. Update the file with the frontmatter value to fix this
-
-![](Images/button_error.png)
