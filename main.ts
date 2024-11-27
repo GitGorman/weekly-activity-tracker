@@ -1,4 +1,5 @@
-import { HoverPopover, MarkdownRenderer, Plugin, TFile, moment, Setting, App, PluginSettingTab, ColorComponent} from "obsidian";
+import { HoverPopover, MarkdownRenderer, Plugin, TFile, moment, Setting, App, PluginSettingTab, ColorComponent, MetadataCache} from "obsidian";
+import { createDailyNote, getDailyNoteSettings } from 'obsidian-daily-notes-interface';
 
 export default class ActivityTracker extends Plugin {
 	settings: ActivityTrackerSettings;
@@ -15,9 +16,9 @@ export default class ActivityTracker extends Plugin {
 
 	async createActivities() {
 		//find the file that contains the data
-		let files = this.app.vault.getMarkdownFiles();
-		let mondayFileName = moment().startOf('isoWeek').format("YYYY-MM-DD").toString()+".md";
-		let mondayFile = files.find((x: { name: string; }) => x.name == mondayFileName);
+		const format = getDailyNoteSettings().format;
+		let mondayFileName = moment().startOf('isoWeek').format(format).toString()+".md";
+		let mondayFile = this.app.metadataCache.getFirstLinkpathDest(mondayFileName, "/");
 
 		//if the file exists
 		if (mondayFile) {
@@ -84,13 +85,6 @@ export default class ActivityTracker extends Plugin {
 			
 		//displaying the button when it is open
 		let generateButtonText = async (textValue : string) => {		
-			//if the metadata doesnt exist 
-			if (await (this.GetValue(metadataValue, mondayFile)) == "") {
-				statusBarButton.setText(emoji+`ERROR : ${metadataValue} does not exist in this weeks monday file. Please add it to the file's properties`);
-				setCSS(false);
-				return;
-			}
-
 			//add the emoji and the current/max text
 			statusBarButton.setText(emoji+`${textValue}/${maxValue} `);
 			setCSS(true);
@@ -122,17 +116,13 @@ export default class ActivityTracker extends Plugin {
 
 		//setting the style of the button
 		let setCSS = async (color : boolean) => {
-			//if the metadata value doesnt exist, display in red
-			if (await (this.GetValue(metadataValue, mondayFile)) == "") {
-				statusBarButton.style.setProperty('background', "#FF0000");
-			}
 			//display in color
-			else if (color){
+			if (color){
 				statusBarButton.style.setProperty('background', `linear-gradient(to right, ${startColor} 0%, ${endColor} 100%)`);
 			} 
 			//display in gray
 			else {
-				statusBarButton.style.setProperty('background', "#949494");
+				statusBarButton.style.setProperty('background', "var(--text-faint)");
 			}
 
 			//set all the other styles
@@ -148,32 +138,16 @@ export default class ActivityTracker extends Plugin {
 
 	//used to get the value from the frontmatter
 	async GetValue(metadataValue : string, mondayFile : TFile) : Promise<string> {
-		//read all the data from the file
-		let fileData = await this.app.vault.read(mondayFile);
+		let data = this.app.metadataCache.getCache(mondayFile.path)?.frontmatter?.[metadataValue];
 
-		//split the file into an array of lines
-		let  fileDataArray = fileData.split('\n');
+		if (data == undefined || data == null) {
+			this.app.fileManager.processFrontMatter(mondayFile, (frontmatter) => {
+				frontmatter[metadataValue] = 0;
+			});
 
-		let value = "";
-		//foreach line in the file
-		fileDataArray.forEach(line => {
-			//if the line contains the desired value
-			if (line.contains(metadataValue)) {
-
-				//sepeate the value from the key
-				let keyAndValue = line.split(':');
-	
-				//read from the key and value pair
-				value = keyAndValue[1].toString();
-
-				//if value is blank, insert a 0
-				if (value==" ") {
-					value = " 0";
-				}
-			}
-		});
-
-		return value;
+			data = 0;
+		}
+		return data;
 	}
 
 	async loadSettings() {
