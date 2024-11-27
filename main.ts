@@ -63,23 +63,13 @@ export default class ActivityTracker extends Plugin {
 				return;
 			}
 
-			//if the metadata doesnt exist
-			if (await (this.GetValue(metadataValue, mondayFile)) == "") {
-				return
-			}
-
 			//add 1 to the value
 			value = `${parseInt(value) + 1}`;
 			generateButtonText(value);
 
-			//update the frontmatter with the new value
-			this.app.vault.process(mondayFile, (fileData) => {
-				return fileData.replace(`${metadataValue}: ${parseInt(value)-1}`, `${metadataValue}: ${parseInt(value)}`);
-			});
-
-			//same thing but incase the fronmatter is empty
-			this.app.vault.process(mondayFile, (fileData) => {
-				return fileData.replace(`${metadataValue}: \n`, `${metadataValue}: ${parseInt(value)}\n`);
+			this.app.fileManager.processFrontMatter(mondayFile, (frontmatter) => {
+				console.log(parseInt(value))
+				frontmatter[metadataValue] = parseInt(value);
 			});
 		});		
 			
@@ -138,15 +128,17 @@ export default class ActivityTracker extends Plugin {
 
 	//used to get the value from the frontmatter
 	async GetValue(metadataValue : string, mondayFile : TFile) : Promise<string> {
-		let data = this.app.metadataCache.getCache(mondayFile.path)?.frontmatter?.[metadataValue];
+		let data = "0";
+		data = this.app.metadataCache.getCache(mondayFile.path)?.frontmatter?.[metadataValue];
 
 		if (data == undefined || data == null) {
 			this.app.fileManager.processFrontMatter(mondayFile, (frontmatter) => {
 				frontmatter[metadataValue] = 0;
 			});
 
-			data = 0;
+			data = "0";
 		}
+
 		return data;
 	}
 
