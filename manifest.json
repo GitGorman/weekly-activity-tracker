@@ -1,7 +1,7 @@
 {
 	"id": "weekly-goal-tracker",
 	"name": "Weekly Goal Tracker",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"minAppVersion": "0.15.0",
 	"description": "Keep track of weekly goals in the status bar",
 	"author": "George Gorman",
