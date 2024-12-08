@@ -3,9 +3,14 @@ import { createDailyNote, getDailyNoteSettings } from 'obsidian-daily-notes-inte
 
 export default class ActivityTracker extends Plugin {
 	settings: ActivityTrackerSettings;
+	activityButtons: any[];
+	statusBarItem: HTMLElement;
 
 	async onload() {
 		this.app.workspace.onLayoutReady( async () => {
+			this.activityButtons = [];
+			this.statusBarItem = this.addStatusBarItem();
+
 			//create settings tab
 			await this.loadSettings();
 			this.addSettingTab(new ActivityTrackerTab(this.app, this));
@@ -27,11 +32,25 @@ export default class ActivityTracker extends Plugin {
 				await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, mondayFile);
 			})
 		}
+
+		console.log(this.activityButtons);
+	}
+
+	async resetActivites() {
+		this.activityButtons.forEach(element => {
+			element.remove();
+		})
+
+		this.activityButtons = [];
+		this.statusBarItem.remove();
+		this.statusBarItem = this.addStatusBarItem();
+		this.createActivities();
 	}
 
 	async createActivity(metadataValue : string, emoji : string, maxValue : number, startColor : string, endColor : string, mondayFile : TFile) {
 		//create status bar element
-		let statusBarButton = this.addStatusBarItem().createEl('button');
+		let statusBarButton = this.statusBarItem.createEl('button');
+		this.activityButtons.push(statusBarButton);
 		statusBarButton.addClass("statusBarButton");
 
 		//when the button is left clicked
@@ -79,8 +98,10 @@ export default class ActivityTracker extends Plugin {
 			statusBarButton.setText(emoji+`${textValue}/${maxValue} `);
 			setCSS(true);
 
+			let loopValue = parseInt(textValue)>maxValue ? parseInt(textValue) : maxValue
+
 			//add maxValue boxes, filled in if that point has been gained, empty if not
-			for(let i = 1; i <= maxValue; i = i+1){
+			for(let i = 1; i <= loopValue; i = i+1){
 				if (i <= parseInt(textValue)) {
 					statusBarButton.textContent += `▮`;
 				}
@@ -147,6 +168,7 @@ export default class ActivityTracker extends Plugin {
 	}
 	
 	async saveSettings() {
+		this.resetActivites();
 		await this.saveData(this.settings);
 	}
 }
@@ -202,7 +224,9 @@ export class ActivityTrackerTab extends PluginSettingTab {
 			  })
 		  );		
 
-		new Setting(containerEl).setName('Activities').setHeading();
+		new Setting(containerEl)
+			.setName('Activities')
+			.setHeading()
 		
 	  	this.plugin.settings.activities.map((activity, index) => {
 			new Setting(containerEl)
@@ -210,7 +234,7 @@ export class ActivityTrackerTab extends PluginSettingTab {
       			.setDesc("Value in the file's frontmatter")
       			.addText((text) =>
         		text
-          			.setPlaceholder('Frontmatter value')
+          			.setPlaceholder('Insert name here')
           			.setValue(activity.name)
           			.onChange(async (value) => {
           	  			activity.name = value;
@@ -223,7 +247,7 @@ export class ActivityTrackerTab extends PluginSettingTab {
 				.setDesc('Icon used for the status bar button')
 				.addText((text) =>
 				text
-					.setPlaceholder('☺')
+					.setPlaceholder('Paste emoji here')
 					.setValue(activity.emoji)
 			  		.onChange(async (value) => {
 						activity.emoji = value;
@@ -236,7 +260,7 @@ export class ActivityTrackerTab extends PluginSettingTab {
 				.setDesc('Weekly goal for this activity')
 				.addText((text) =>
 				text
-					.setPlaceholder('10')
+					.setPlaceholder('Insert goal here')
 					.setValue(activity.max)
 			  		.onChange(async (value) => {
 						activity.max = value;
@@ -270,10 +294,37 @@ export class ActivityTrackerTab extends PluginSettingTab {
 
 			new Setting(containerEl).addButton((el) =>
 				el.setButtonText("Remove activity").onClick(() => {		  
-			 		delete this.plugin.settings.activities[index];
+			 		this.plugin.settings.activities.splice(index,1);
 			  		this.display();
+					this.plugin.saveSettings();
 				}),
 			);
+
+			if (index != 0) {
+				new Setting(containerEl).addButton((el) =>
+					el.setButtonText("ʌ").onClick(() => {	
+						let temp = 	this.plugin.settings.activities[index];
+						this.plugin.settings.activities[index] = this.plugin.settings.activities[index-1];
+						this.plugin.settings.activities[index-1] = temp;
+
+			  			this.display();
+						this.plugin.saveSettings();
+					}),
+				);
+			}
+
+			if (index != this.plugin.settings.activities.length-1) {
+				new Setting(containerEl).addButton((el) =>
+					el.setButtonText("v").onClick(() => {	
+						let temp = 	this.plugin.settings.activities[index];
+						this.plugin.settings.activities[index] = this.plugin.settings.activities[index+1];
+						this.plugin.settings.activities[index+1] = temp;
+
+			  			this.display();
+						this.plugin.saveSettings();
+					}),
+				);
+			}
 		});
 
 		new Setting(containerEl).addButton((el) =>
@@ -283,11 +334,12 @@ export class ActivityTrackerTab extends PluginSettingTab {
 					emoji: "",
 					max: "",
 					startColor: "",
-					endColor: "",
+					endColor: " ",
 		  		};
 
 		  		this.plugin.settings.activities.push(newActivity);
 		  		this.display();
+				this.plugin.saveSettings();
 			}),
 		);
 	}
