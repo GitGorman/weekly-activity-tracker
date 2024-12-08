@@ -20,3 +20,4 @@ This is a plugin for [Obsidian](https://obsidian.md) that allows you to add butt
 - Icon : the icon displayed in the status bar button. I recommend using [Emojipedia](https://emojipedia.org/) to find icons
 - Goal : the weekly goal for activity
 - Start color/end color : the gradient color for the status bar button, from left to right
+- ʌ/v : change the order in which the status bar buttons appear

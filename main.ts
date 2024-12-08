@@ -211,7 +211,6 @@ export class ActivityTrackerTab extends PluginSettingTab {
 		let { containerEl } = this;
   
 	  	containerEl.empty();
-	  	containerEl.createEl("p", { text: `NOTE Changes are not applied until reload` });
 
 		new Setting(containerEl)
 			.setName('Hide numbers when button is closed?')
