@@ -71,7 +71,7 @@ export default class ActivityTracker extends Plugin {
 		});		
 
 		//when the button is right clicked
-		statusBarButton.addEventListener('contextmenu', async () => {	
+		statusBarButton.addEventListener('contextmenu', async (e) => {	
 			//get the value from the file's frontmatter
 			let value = await this.GetValue(metadataValue, mondayFile, false);
 
@@ -80,8 +80,10 @@ export default class ActivityTracker extends Plugin {
 				return;
 			}
 
-			//add 1 to the value
-			value = `${parseInt(value) + 1}`;
+			//change value
+			let int = e.shiftKey ? -1 : 1;
+
+			value = `${parseInt(value) + int}`;
 			generateButtonText(value);
 
 			this.app.fileManager.processFrontMatter(mondayFile, (frontmatter) => {

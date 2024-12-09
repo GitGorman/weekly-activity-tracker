@@ -13,7 +13,7 @@ This is a plugin for [Obsidian](https://obsidian.md) that allows you to add butt
 
 ![](Images/button_opened.png)
 
-### **While the button is open, use right click to +1 to the goal**
+### **While the button is open, use right click to +1 to the goal. Hold shift and use right click to -1 from the goal**
 
 ## Settings
 - Frontmatter value : the value in the frontmatter to read and write to
