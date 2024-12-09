@@ -32,8 +32,6 @@ export default class ActivityTracker extends Plugin {
 				await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, mondayFile);
 			})
 		}
-
-		console.log(this.activityButtons);
 	}
 
 	async resetActivites() {
@@ -56,7 +54,7 @@ export default class ActivityTracker extends Plugin {
 		//when the button is left clicked
 		statusBarButton.addEventListener('click', async () => {	
 			//get the value from the file's frontmatter
-			let value = await this.GetValue(metadataValue, mondayFile);
+			let value = await this.GetValue(metadataValue, mondayFile, true);
 
 			//if the button is already open
 			if (statusBarButton.hasClass("active")) {
@@ -75,7 +73,7 @@ export default class ActivityTracker extends Plugin {
 		//when the button is right clicked
 		statusBarButton.addEventListener('contextmenu', async () => {	
 			//get the value from the file's frontmatter
-			let value = await this.GetValue(metadataValue, mondayFile);
+			let value = await this.GetValue(metadataValue, mondayFile, false);
 
 			//if the button isnt open
 			if (!statusBarButton.hasClass("active")) {
@@ -144,19 +142,20 @@ export default class ActivityTracker extends Plugin {
 		}		
 		
 		//initial display upon loading
-		generateButtonTextNoBoxes(await this.GetValue(metadataValue, mondayFile));
+		generateButtonTextNoBoxes(await this.GetValue(metadataValue, mondayFile, false));
 	}
 
 	//used to get the value from the frontmatter
-	async GetValue(metadataValue : string, mondayFile : TFile) : Promise<string> {
+	async GetValue(metadataValue : string, mondayFile : TFile, addFrontmatter : boolean) : Promise<string> {
 		let data = "0";
 		data = this.app.metadataCache.getCache(mondayFile.path)?.frontmatter?.[metadataValue];
 
 		if (data == undefined || data == null) {
-			this.app.fileManager.processFrontMatter(mondayFile, (frontmatter) => {
-				frontmatter[metadataValue] = 0;
-			});
-
+			if (addFrontmatter) {
+				this.app.fileManager.processFrontMatter(mondayFile, (frontmatter) => {
+					frontmatter[metadataValue] = 0;
+				});
+			}
 			data = "0";
 		}
 
@@ -230,7 +229,7 @@ export class ActivityTrackerTab extends PluginSettingTab {
 	  	this.plugin.settings.activities.map((activity, index) => {
 			new Setting(containerEl)
       			.setName('Frontmatter value')
-      			.setDesc("Value in the file's frontmatter")
+      			.setDesc("Value in the file's frontmatter. NOTE - changing this will not update the name in the frontmatter and instead just create a new property")
       			.addText((text) =>
         		text
           			.setPlaceholder('Insert name here')
