@@ -244,7 +244,7 @@ export class ActivityTrackerTab extends PluginSettingTab {
 	
 			new Setting(containerEl)
 				.setName('Icon')
-				.setDesc('Icon used for the status bar button')
+				.setDesc('Icon used for the status bar button. I recommend using https://emojipedia.org/ to find icons')
 				.addText((text) =>
 				text
 					.setPlaceholder('Paste emoji here')
