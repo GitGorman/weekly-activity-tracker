@@ -1,5 +1,5 @@
 import { HoverPopover, MarkdownRenderer, Plugin, TFile, moment, Setting, App, PluginSettingTab, ColorComponent, MetadataCache} from "obsidian";
-import { createDailyNote, getDailyNoteSettings } from 'obsidian-daily-notes-interface';
+import { createDailyNote, getDailyNoteSettings, getWeeklyNoteSettings } from 'obsidian-daily-notes-interface';
 
 export default class ActivityTracker extends Plugin {
 	settings: ActivityTrackerSettings;
@@ -20,17 +20,30 @@ export default class ActivityTracker extends Plugin {
 	}
 
 	async createActivities() {
+		//if using weekly notes instead of monday note
+		const weekFormat = getWeeklyNoteSettings().format;
+		let weekFileName = moment().format(weekFormat).toString()+".md"
+		let weekFile = this.app.metadataCache.getFirstLinkpathDest(weekFileName, "/");
+
 		//find the file that contains the data
-		const format = getDailyNoteSettings().format;
-		let mondayFileName = moment().startOf('isoWeek').format(format).toString()+".md";
+		const dayFormat = getDailyNoteSettings().format;
+		let mondayFileName = moment().startOf('isoWeek').format(dayFormat).toString()+".md";
 		let mondayFile = this.app.metadataCache.getFirstLinkpathDest(mondayFileName, "/");
 
-		//if the file exists
-		if (mondayFile) {
+		if (weekFile && this.settings.useWeekFile) {
+			//create an activity button for each activity in the settings tab
+			this.settings.activities.forEach(async (a) => {
+				await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, weekFile);
+			})
+		}
+		else if (mondayFile && !this.settings.useWeekFile) {
 			//create an activity button for each activity in the settings tab
 			this.settings.activities.forEach(async (a) => {
 				await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, mondayFile);
 			})
+		}
+		else {
+			console.log("NO FILE FOUND");
 		}
 	}
 
@@ -193,11 +206,13 @@ export class Activity {
 interface ActivityTrackerSettings {
 	activities : Array<Activity>;
 	hideWhenClosed : boolean;
+	useWeekFile : boolean;
 }
 
 const DEFAULT_SETTINGS: Partial<ActivityTrackerSettings> = {
 	activities: [new Activity("","","","","")],
 	hideWhenClosed: false,
+	useWeekFile: false
 }
 
 export class ActivityTrackerTab extends PluginSettingTab {
@@ -223,6 +238,18 @@ export class ActivityTrackerTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 			  })
 		  );		
+
+		new Setting(containerEl)
+			.setName('Use weekly note?')
+			.setDesc("Decides whether or not to use the weekly note from the 'Periodic Notes' plugin instead of the monday file (typically in the format eg.2024-W48)")
+		  	.addToggle((toggle) =>
+			toggle
+			  	.setValue(this.plugin.settings.useWeekFile)
+			  	.onChange(async (value) => {
+					this.plugin.settings.useWeekFile = value;
+					await this.plugin.saveSettings();
+			  })
+		  );	
 
 		new Setting(containerEl)
 			.setName('Activities')

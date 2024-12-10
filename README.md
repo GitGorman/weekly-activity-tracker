@@ -1,5 +1,5 @@
 ## Weekly Goal Tracker Plugin for Obsidian
-This is a plugin for [Obsidian](https://obsidian.md) that allows you to add buttons to the status bar that allow you to track of different weekly goals and update them with ease. For example you could set a weekly exercise goal. The data is stored in the frontmatter of the Monday file of that week.
+This is a plugin for [Obsidian](https://obsidian.md) that allows you to add buttons to the status bar that allow you to track of different weekly goals and update them with ease. For example you could set a weekly exercise goal. The data is stored in the frontmatter of the Monday file of that week, or in the weekly file using the [Periodic Notes plugin](https://github.com/liamcain/obsidian-periodic-notes).
 ## Usage
 ### When the button is closed, it displays an icon, the current value and the goal value
 
