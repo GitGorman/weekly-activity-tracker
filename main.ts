@@ -108,7 +108,7 @@ export default class ActivityTracker extends Plugin {
 		//displaying the button when it is open
 		let generateButtonText = async (textValue : string) => {		
 			//add the emoji and the current/max text
-			statusBarButton.setText(emoji+`${textValue}/${maxValue} `);
+			statusBarButton.setText(emoji+` `+`${textValue}/${maxValue} `);
 			setCSS(true);
 
 			let loopValue = parseInt(textValue)>maxValue ? parseInt(textValue) : maxValue
