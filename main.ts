@@ -127,7 +127,7 @@ export default class ActivityTracker extends Plugin {
 		//displaying the button when it is closed
 		let generateButtonTextNoBoxes = (textValue : string) => {		
 			//add the emoji and the current/max
-			statusBarButton.setText(emoji+(this.settings.hideWhenClosed?``:`${textValue}/${maxValue} `));	
+			statusBarButton.setText(emoji+` `+(this.settings.hideWhenClosed?``:`${textValue}/${maxValue} `));	
 			
 			//if the goal has been reached, display in color, otherwise in gray
 			if (parseInt(textValue) >= maxValue) {
@@ -357,11 +357,11 @@ export class ActivityTrackerTab extends PluginSettingTab {
 		new Setting(containerEl).addButton((el) =>
 			el.setButtonText("Add new activity").onClick(() => {
 				let newActivity = {
-					name: "",
-					emoji: "",
-					max: "",
-					startColor: "",
-					endColor: " ",
+					name: `new_goal${this.plugin.settings.activities.length+1}`,
+					emoji: "✨",
+					max: "10",
+					startColor: "#FFFFFF",
+					endColor: "#FFFFFF",
 		  		};
 
 		  		this.plugin.settings.activities.push(newActivity);

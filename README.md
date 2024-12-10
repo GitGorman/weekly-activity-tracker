@@ -21,3 +21,6 @@ This is a plugin for [Obsidian](https://obsidian.md) that allows you to add butt
 - Goal : the weekly goal for activity
 - Start color/end color : the gradient color for the status bar button, from left to right
 - ʌ/v : change the order in which buttons appear in the status bar
+
+## Bug Reports and Feature Requests
+If you would like to report any bugs or request features, feal free to open an issue at https://github.com/GitGorman/weekly-goal-tracker/issues
