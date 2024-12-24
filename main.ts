@@ -67,12 +67,12 @@ export default class ActivityTracker extends Plugin {
 
 	async displayErrorMessage() {
 		if (this.settings.useWeekFile) {
-			let message = `WEEKLY GOAL TRACKER : File [${this.weekFileName}] not found. Please create it and reload the app to start tracking goals`;
+			let message = `WEEKLY GOAL TRACKER : File [${this.weekFileName}] not found. Please create it to start tracking goals`;
 
 			this.notice = new Notice(message, 0);
 		}
 		else {
-			let message = `WEEKLY GOAL TRACKER : File [${this.mondayFileName}] not found. Please create it and reload the app to start tracking goals`;
+			let message = `WEEKLY GOAL TRACKER : File [${this.mondayFileName}] not found. Please create it to start tracking goals`;
 
 			this.notice = new Notice(message, 0);
 		}
