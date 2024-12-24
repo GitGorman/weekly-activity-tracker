@@ -1,10 +1,13 @@
-import { HoverPopover, MarkdownRenderer, Plugin, TFile, moment, Setting, App, PluginSettingTab, ColorComponent, MetadataCache} from "obsidian";
+import { HoverPopover, MarkdownRenderer, Plugin, TFile, moment, Setting, App, PluginSettingTab, ColorComponent, MetadataCache, Notice} from "obsidian";
 import { createDailyNote, getDailyNoteSettings, getWeeklyNoteSettings } from 'obsidian-daily-notes-interface';
 
 export default class ActivityTracker extends Plugin {
 	settings: ActivityTrackerSettings;
 	activityButtons: any[];
 	statusBarItem: HTMLElement;
+	weekFileName: string;
+	mondayFileName: string;
+	notice : Notice;
 
 	async onload() {
 		this.app.workspace.onLayoutReady( async () => {
@@ -16,19 +19,34 @@ export default class ActivityTracker extends Plugin {
 			this.addSettingTab(new ActivityTrackerTab(this.app, this));
 
 			this.createActivities();
+
+			//when a file is created
+			this.app.vault.on('create', async () => {
+				this.resetActivites();
+			});
+
+			//when a file is deleted
+			this.app.vault.on('delete', async () => {
+				this.resetActivites();
+			});
+
+			//when a file is renamed
+			this.app.vault.on('rename', async () => {
+				this.resetActivites();
+			});
 		});
 	}
 
 	async createActivities() {
 		//if using weekly notes instead of monday note
 		const weekFormat = getWeeklyNoteSettings().format;
-		let weekFileName = moment().format(weekFormat).toString()+".md"
-		let weekFile = this.app.metadataCache.getFirstLinkpathDest(weekFileName, "/");
+		this.weekFileName = moment().format(weekFormat).toString()+".md"
+		let weekFile = this.app.metadataCache.getFirstLinkpathDest(this.weekFileName, "/");
 
 		//find the file that contains the data
 		const dayFormat = getDailyNoteSettings().format;
-		let mondayFileName = moment().startOf('isoWeek').format(dayFormat).toString()+".md";
-		let mondayFile = this.app.metadataCache.getFirstLinkpathDest(mondayFileName, "/");
+		this.mondayFileName = moment().startOf('isoWeek').format(dayFormat).toString()+".md";
+		let mondayFile = this.app.metadataCache.getFirstLinkpathDest(this.mondayFileName, "/");
 
 		if (weekFile && this.settings.useWeekFile) {
 			//create an activity button for each activity in the settings tab
@@ -43,7 +61,20 @@ export default class ActivityTracker extends Plugin {
 			})
 		}
 		else {
-			console.log("NO FILE FOUND");
+			this.displayErrorMessage();
+		}
+	}
+
+	async displayErrorMessage() {
+		if (this.settings.useWeekFile) {
+			let message = `WEEKLY GOAL TRACKER : File [${this.weekFileName}] not found. Please create it and reload the app to start tracking goals`;
+
+			this.notice = new Notice(message, 0);
+		}
+		else {
+			let message = `WEEKLY GOAL TRACKER : File [${this.mondayFileName}] not found. Please create it and reload the app to start tracking goals`;
+
+			this.notice = new Notice(message, 0);
 		}
 	}
 
@@ -52,13 +83,18 @@ export default class ActivityTracker extends Plugin {
 			element.remove();
 		})
 
+		if (this.notice != null) {
+			console.log("hide");
+			this.notice.noticeEl.remove();
+		}
+
 		this.activityButtons = [];
 		this.statusBarItem.remove();
 		this.statusBarItem = this.addStatusBarItem();
 		this.createActivities();
 	}
 
-	async createActivity(metadataValue : string, emoji : string, maxValue : number, startColor : string, endColor : string, mondayFile : TFile) {
+	async createActivity(metadataValue : string, emoji : string, maxValue : number, startColor : string, endColor : string, file : TFile) {
 		//create status bar element
 		let statusBarButton = this.statusBarItem.createEl('button');
 		this.activityButtons.push(statusBarButton);
@@ -67,7 +103,7 @@ export default class ActivityTracker extends Plugin {
 		//when the button is left clicked
 		statusBarButton.addEventListener('click', async () => {	
 			//get the value from the file's frontmatter
-			let value = await this.GetValue(metadataValue, mondayFile, true);
+			let value = await this.GetValue(metadataValue, file, true);
 
 			//if the button is already open
 			if (statusBarButton.hasClass("active")) {
@@ -86,7 +122,7 @@ export default class ActivityTracker extends Plugin {
 		//when the button is right clicked
 		statusBarButton.addEventListener('contextmenu', async (e) => {	
 			//get the value from the file's frontmatter
-			let value = await this.GetValue(metadataValue, mondayFile, false);
+			let value = await this.GetValue(metadataValue, file, false);
 
 			//if the button isnt open
 			if (!statusBarButton.hasClass("active")) {
@@ -99,7 +135,7 @@ export default class ActivityTracker extends Plugin {
 			value = `${parseInt(value) + int}`;
 			generateButtonText(value);
 
-			this.app.fileManager.processFrontMatter(mondayFile, (frontmatter) => {
+			this.app.fileManager.processFrontMatter(file, (frontmatter) => {
 				console.log(parseInt(value))
 				frontmatter[metadataValue] = parseInt(value);
 			});
@@ -157,17 +193,17 @@ export default class ActivityTracker extends Plugin {
 		}		
 		
 		//initial display upon loading
-		generateButtonTextNoBoxes(await this.GetValue(metadataValue, mondayFile, false));
+		generateButtonTextNoBoxes(await this.GetValue(metadataValue, file, false));
 	}
 
 	//used to get the value from the frontmatter
-	async GetValue(metadataValue : string, mondayFile : TFile, addFrontmatter : boolean) : Promise<string> {
+	async GetValue(metadataValue : string, file : TFile, addFrontmatter : boolean) : Promise<string> {
 		let data = "0";
-		data = this.app.metadataCache.getCache(mondayFile.path)?.frontmatter?.[metadataValue];
+		data = this.app.metadataCache.getCache(file.path)?.frontmatter?.[metadataValue];
 
 		if (data == undefined || data == null) {
 			if (addFrontmatter) {
-				this.app.fileManager.processFrontMatter(mondayFile, (frontmatter) => {
+				this.app.fileManager.processFrontMatter(file, (frontmatter) => {
 					frontmatter[metadataValue] = 0;
 				});
 			}
@@ -210,7 +246,7 @@ interface ActivityTrackerSettings {
 }
 
 const DEFAULT_SETTINGS: Partial<ActivityTrackerSettings> = {
-	activities: [new Activity("","","","","")],
+	activities: [],
 	hideWhenClosed: false,
 	useWeekFile: false
 }
@@ -241,7 +277,7 @@ export class ActivityTrackerTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Use weekly note?')
-			.setDesc("Decides whether or not to use the weekly note from the 'Periodic Notes' plugin instead of the monday file (typically in the format eg.2024-W48)")
+			.setDesc("Decides whether or not to use the weekly note instead of the monday note (typically in the format eg.2024-W48)")
 		  	.addToggle((toggle) =>
 			toggle
 			  	.setValue(this.plugin.settings.useWeekFile)
