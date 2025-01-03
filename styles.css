@@ -2,3 +2,11 @@
     padding : 0px 3px;
     margin : 0px 3px;
 }
+
+.modalButton {
+    background-color : var(--background-primary-alt);
+}
+
+.submitButton {
+    background-color : var(--background-secondary-alt);
+}

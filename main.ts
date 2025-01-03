@@ -1,5 +1,5 @@
-import { HoverPopover, MarkdownRenderer, Plugin, TFile, moment, Setting, App, PluginSettingTab, ColorComponent, MetadataCache, Notice} from "obsidian";
-import { createDailyNote, getDailyNoteSettings, getWeeklyNoteSettings } from 'obsidian-daily-notes-interface';
+import { Plugin, TFile, moment, Setting, App, PluginSettingTab, Notice, TAbstractFile, Editor, Menu, Modal} from "obsidian";
+import { getDailyNoteSettings, getWeeklyNoteSettings } from 'obsidian-daily-notes-interface';
 
 export default class ActivityTracker extends Plugin {
 	settings: ActivityTrackerSettings;
@@ -8,12 +8,14 @@ export default class ActivityTracker extends Plugin {
 	weekFileName: string;
 	mondayFileName: string;
 	notice : Notice;
+	mouseX : number;
+	mouseY : number
 
 	async onload() {
 		this.app.workspace.onLayoutReady( async () => {
 			this.activityButtons = [];
 			this.statusBarItem = this.addStatusBarItem();
-
+			
 			//create settings tab
 			await this.loadSettings();
 			this.addSettingTab(new ActivityTrackerTab(this.app, this));
@@ -34,7 +36,56 @@ export default class ActivityTracker extends Plugin {
 			this.app.vault.on('rename', async () => {
 				this.resetActivites();
 			});
+			
+			//when file is edited
+			this.app.vault.on('modify', async (file) => {
+				this.tryUpdateActivityValue(file);
+			})
+
+			this.addCommand({
+				id: `wgt-start`,
+				name: `Attach task to weekly goal`,
+				repeatable: false,
+				editorCallback: ( editor:Editor) => {
+					let x = this.mouseX;
+					let y = this.mouseY;
+					const menu = new Menu();
+					if (editor.getLine(editor.getCursor().line).contains('- [ ]') && !editor.getLine(editor.getCursor().line).contains('%%wgt')) {
+						this.settings.activities.forEach(element => {
+							menu.addItem((item) => item
+								.setTitle(`${element.emoji}   Attach to ${element.name}`)
+								.onClick(() => {
+									if (!this.settings.askForWeight) {
+										editor.setLine(editor.getCursor().line,editor.getLine(editor.getCursor().line)+`%%wgt[${element.name}]{1}wgt%%`);
+									}
+									else {
+										new InputModal(this.app, (result) => {
+											editor.setLine(editor.getCursor().line,editor.getLine(editor.getCursor().line)+`%%wgt[${element.name}]{${result}}wgt%%`);	
+										}).open();
+									}
+								})
+							);
+						});
+					} 
+					else if (editor.getLine(editor.getCursor().line).contains('%%wgt')) {			
+						menu.addItem((item) => item
+							.setTitle(`This task is already attached to a goal. To unattach the task, remove the %%wgt[...]{...}wgt%%`)
+						)
+					}
+					else {		
+						menu.addItem((item) => item
+							.setTitle(`Please make sure there is an unchecked task on the current line before attempting to attach it to a goal`))	
+					}
+					menu.showAtPosition({ x: x, y: y});
+				}
+			});
 		});
+
+		//use to get the postion of the mouse for the command menu
+		document.onmousemove = (event) => {
+			this.mouseX = event.clientX;
+			this.mouseY = event.clientY;
+		}
 	}
 
 	async createActivities() {
@@ -66,6 +117,10 @@ export default class ActivityTracker extends Plugin {
 	}
 
 	async displayErrorMessage() {
+		if (this.notice) {
+			this.notice.hide();
+		}
+
 		if (this.settings.useWeekFile) {
 			let message = `WEEKLY GOAL TRACKER : File [${this.weekFileName}] not found. Please create it to start tracking goals`;
 
@@ -81,7 +136,7 @@ export default class ActivityTracker extends Plugin {
 	async resetActivites() {
 		this.activityButtons.forEach(element => {
 			element.remove();
-		})
+		});
 
 		if (this.notice != null) {
 			console.log("hide");
@@ -94,6 +149,79 @@ export default class ActivityTracker extends Plugin {
 		this.createActivities();
 	}
 
+	async tryUpdateActivityValue(abstractFile : TAbstractFile) {
+		
+		let thisFile = this.app.metadataCache.getFirstLinkpathDest(abstractFile.name, "/");
+		let dataFile = this.app.metadataCache.getFirstLinkpathDest(this.settings.useWeekFile ? this.weekFileName : this.mondayFileName, "/");
+
+		if (dataFile && thisFile) {
+			let data = this.app.vault.process(thisFile, (string) => {
+				return string;
+			});
+
+			let lines = (await data).split('\n');
+
+			lines.forEach(async (element) => {
+				if ((element.contains(`- [x]`) && element.contains(`%%wgt[`) && !element.contains(`%%wgt@[`)) || (element.contains(`- [ ]`) && element.contains(`%%wgt@[`))) {
+					//extract metadata value
+					let metadataValue ="";
+					if (element.contains(`%%wgt@[`)) {
+						metadataValue = element.substring(
+							element.indexOf("%%wgt@[") + 7, 
+							element.indexOf("]{")
+						);
+					}
+					else {
+						metadataValue = element.substring(
+							element.indexOf("%%wgt[") + 6, 
+							element.indexOf("]{")
+						);
+					}
+
+					let weight = parseInt(element.substring(
+						element.indexOf("]{") + 2,
+						element.indexOf("}wgt%%")
+					));
+
+					//get the value for that metadata
+					let value = await this.getValue(metadataValue, dataFile, false);
+
+					//change value
+					let int = element.contains(`%%wgt@[`) ? -weight : weight;
+					value = `${parseInt(value) + int}`;
+
+					this.app.fileManager.processFrontMatter(dataFile, (frontmatter) => {
+						frontmatter[metadataValue] = parseInt(value);
+					})
+
+					//change the value of the line
+					if (element.contains(`%%wgt@[`)) {
+						let newElement = element.replace(`%%wgt@[${metadataValue}]{${weight}}wgt%%`, `%%wgt[${metadataValue}]{${weight}}wgt%%`);
+						this.app.vault.process(thisFile, (data) => {
+							return data.replace(element,newElement);
+						});
+					} 
+					else {
+						let newElement = element.replace(`%%wgt[${metadataValue}]{${weight}}wgt%%`, `%%wgt@[${metadataValue}]{${weight}}wgt%%`);
+						console.log(newElement);
+						this.app.vault.process(thisFile, (data) => {
+							return data.replace(element,newElement);
+						});
+					}
+
+					//used so that button doesnt end up using old value
+					await new Promise(f => setTimeout(f, 50));
+					this.resetActivites();
+
+					return;
+				}
+			});
+		}
+		else {
+			this.displayErrorMessage();
+		}
+	}
+
 	async createActivity(metadataValue : string, emoji : string, maxValue : number, startColor : string, endColor : string, file : TFile) {
 		//create status bar element
 		let statusBarButton = this.statusBarItem.createEl('button');
@@ -103,7 +231,7 @@ export default class ActivityTracker extends Plugin {
 		//when the button is left clicked
 		statusBarButton.addEventListener('click', async () => {	
 			//get the value from the file's frontmatter
-			let value = await this.GetValue(metadataValue, file, true);
+			let value = await this.getValue(metadataValue, file, true);
 
 			//if the button is already open
 			if (statusBarButton.hasClass("active")) {
@@ -122,7 +250,7 @@ export default class ActivityTracker extends Plugin {
 		//when the button is right clicked
 		statusBarButton.addEventListener('contextmenu', async (e) => {	
 			//get the value from the file's frontmatter
-			let value = await this.GetValue(metadataValue, file, false);
+			let value = await this.getValue(metadataValue, file, false);
 
 			//if the button isnt open
 			if (!statusBarButton.hasClass("active")) {
@@ -136,7 +264,6 @@ export default class ActivityTracker extends Plugin {
 			generateButtonText(value);
 
 			this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-				console.log(parseInt(value))
 				frontmatter[metadataValue] = parseInt(value);
 			});
 		});		
@@ -193,11 +320,11 @@ export default class ActivityTracker extends Plugin {
 		}		
 		
 		//initial display upon loading
-		generateButtonTextNoBoxes(await this.GetValue(metadataValue, file, false));
+		generateButtonTextNoBoxes(await this.getValue(metadataValue, file, false));
 	}
 
 	//used to get the value from the frontmatter
-	async GetValue(metadataValue : string, file : TFile, addFrontmatter : boolean) : Promise<string> {
+	async getValue(metadataValue : string, file : TFile, addFrontmatter : boolean) : Promise<string> {
 		let data = "0";
 		data = this.app.metadataCache.getCache(file.path)?.frontmatter?.[metadataValue];
 
@@ -219,6 +346,7 @@ export default class ActivityTracker extends Plugin {
 	
 	async saveSettings() {
 		this.resetActivites();
+
 		await this.saveData(this.settings);
 	}
 }
@@ -242,12 +370,14 @@ export class Activity {
 interface ActivityTrackerSettings {
 	activities : Array<Activity>;
 	hideWhenClosed : boolean;
+	askForWeight : boolean;
 	useWeekFile : boolean;
 }
 
 const DEFAULT_SETTINGS: Partial<ActivityTrackerSettings> = {
 	activities: [],
 	hideWhenClosed: false,
+	askForWeight: true,
 	useWeekFile: false
 }
 
@@ -274,6 +404,19 @@ export class ActivityTrackerTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 			  })
 		  );		
+
+
+		new Setting(containerEl)
+		  .setName('Allow tasks to be worth multiple points?')
+		  .setDesc("You will be given a prompt when attaching a task to a goal to input how many points it is worth")
+			.addToggle((toggle) =>
+		  toggle
+				.setValue(this.plugin.settings.askForWeight)
+				.onChange(async (value) => {
+				  this.plugin.settings.askForWeight = value;
+				  await this.plugin.saveSettings();
+			})
+		);	
 
 		new Setting(containerEl)
 			.setName('Use weekly note?')
@@ -407,3 +550,44 @@ export class ActivityTrackerTab extends PluginSettingTab {
 		);
 	}
 }
+
+export class InputModal extends Modal {
+	constructor(app: App, onSubmit: (result: string) => void) {
+	super(app);
+		let weight = 1;
+		this.setTitle(`${weight} points`);
+			
+		new Setting(this.contentEl)
+		.setName("How many points should this task be worth?")
+		.addButton((btn) =>
+			btn
+			.setButtonText('+')
+			.setCta()
+			.setClass("modalButton")
+			.onClick(() => {
+				weight++;
+				this.setTitle(`${weight} points`);
+			})
+		)
+		.addButton((btn) =>
+			btn
+			.setButtonText('-')
+			.setCta()
+			.setClass("modalButton")
+			.onClick(() => {
+				weight--;
+				this.setTitle(`${weight} points`);
+			})
+		)
+		.addButton((btn) =>
+			btn
+			.setButtonText('Submit')
+			.setCta()
+			.setClass("submitButton")
+			.onClick(() => {
+				this.close();
+				onSubmit(`${weight}`);
+			})
+		);
+	}
+  }
