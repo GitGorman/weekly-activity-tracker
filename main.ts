@@ -4,17 +4,25 @@ import { getDailyNoteSettings, getWeeklyNoteSettings } from 'obsidian-daily-note
 export default class ActivityTracker extends Plugin {
 	settings: ActivityTrackerSettings;
 	activityButtons: any[];
-	statusBarItem: HTMLElement;
+	weeklyStatusBarItem: HTMLElement;
+	dailyStatusBarItem: HTMLElement;
 	weekFileName: string;
 	mondayFileName: string;
+	todayFileName:string
 	notice : Notice;
 	mouseX : number;
 	mouseY : number
+	requireDay : boolean;
+	requireWeek : boolean;
 
 	async onload() {
 		this.app.workspace.onLayoutReady( async () => {
 			this.activityButtons = [];
-			this.statusBarItem = this.addStatusBarItem();
+			this.weeklyStatusBarItem = this.addStatusBarItem();
+			this.dailyStatusBarItem = this.addStatusBarItem();
+
+			this.weeklyStatusBarItem.addClass('container');
+			this.dailyStatusBarItem.addClass('container');
 			
 			//create settings tab
 			await this.loadSettings();
@@ -44,7 +52,7 @@ export default class ActivityTracker extends Plugin {
 
 			this.addCommand({
 				id: `wgt-start`,
-				name: `Attach task to weekly goal`,
+				name: `Attach task to goal`,
 				repeatable: false,
 				editorCallback: ( editor:Editor) => {
 					let x = this.mouseX;
@@ -89,48 +97,98 @@ export default class ActivityTracker extends Plugin {
 	}
 
 	async createActivities() {
-		//if using weekly notes instead of monday note
+		//find the file that contains the data
 		const weekFormat = getWeeklyNoteSettings().format;
-		this.weekFileName = moment().format(weekFormat).toString()+".md"
+		this.weekFileName = moment().format(weekFormat).toString()+".md";
 		let weekFile = this.app.metadataCache.getFirstLinkpathDest(this.weekFileName, "/");
 
-		//find the file that contains the data
 		const dayFormat = getDailyNoteSettings().format;
 		this.mondayFileName = moment().startOf('isoWeek').format(dayFormat).toString()+".md";
 		let mondayFile = this.app.metadataCache.getFirstLinkpathDest(this.mondayFileName, "/");
 
-		if (weekFile && this.settings.useWeekFile) {
-			//create an activity button for each activity in the settings tab
-			this.settings.activities.forEach(async (a) => {
-				await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, weekFile);
-			})
-		}
-		else if (mondayFile && !this.settings.useWeekFile) {
-			//create an activity button for each activity in the settings tab
-			this.settings.activities.forEach(async (a) => {
-				await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, mondayFile);
-			})
-		}
-		else {
-			this.displayErrorMessage();
-		}
+		this.todayFileName = moment().format(dayFormat).toString()+".md";
+		let todayFile = this.app.metadataCache.getFirstLinkpathDest(this.todayFileName, "/");
+
+		//check if neither weekly or daily are needed
+		this.requireWeek = false;
+		this.requireDay = false;
+
+		this.settings.activities.forEach(element => {
+			if (element.frequency == 'weekly') {
+				this.requireWeek = true;
+			}
+			else if (element.frequency == 'daily') {
+				this.requireDay = true;
+			}
+		});
+		
+
+		this.settings.activities.forEach(async (a) => {
+			if (this.requireWeek && !this.requireDay) {
+				if (this.settings.useWeekFile) {
+					if (weekFile) {
+						await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, weekFile, weekFile);
+					}
+					else {
+						this.displayErrorMessage(this.weekFileName);
+					}
+				}
+				else {
+					if (mondayFile) {
+						await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, mondayFile, mondayFile);
+					}
+					else {
+						this.displayErrorMessage(this.mondayFileName);
+					}
+				}
+			}
+			else if (this.requireDay && !this.requireWeek) {
+				if (todayFile) {
+					await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, todayFile, todayFile);
+				}
+				else {
+					this.displayErrorMessage(this.todayFileName);
+				}
+			}
+			else if (this.requireDay && this.requireWeek){
+				if (this.settings.useWeekFile) {
+					if (weekFile && todayFile) {
+						await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, weekFile, todayFile);
+					}
+					else {
+						if (!weekFile) {
+							this.displayErrorMessage(this.weekFileName);
+						}
+						else if (!todayFile){
+							this.displayErrorMessage(this.todayFileName);
+						}
+					}
+				}
+				else {
+					if (mondayFile && todayFile) {
+						await this.createActivity(a.name, a.emoji, parseInt(a.max), a.startColor, a.endColor, mondayFile, todayFile);
+					}
+					else {
+						if (!mondayFile) {
+							this.displayErrorMessage(this.mondayFileName);
+						}
+						else if (!todayFile){
+							this.displayErrorMessage(this.todayFileName);
+						}
+					}
+				}
+			} 
+		})
 	}
 
-	async displayErrorMessage() {
+	async displayErrorMessage(fileName : string) {
 		if (this.notice) {
 			this.notice.hide();
 		}
 
-		if (this.settings.useWeekFile) {
-			let message = `WEEKLY GOAL TRACKER : File [${this.weekFileName}] not found. Please create it to start tracking goals`;
+		let message = `WEEKLY GOAL TRACKER : File [${fileName}] not found. Please create it to start tracking goals`;
 
-			this.notice = new Notice(message, 0);
-		}
-		else {
-			let message = `WEEKLY GOAL TRACKER : File [${this.mondayFileName}] not found. Please create it to start tracking goals`;
-
-			this.notice = new Notice(message, 0);
-		}
+		this.notice = new Notice(message, 0);
 	}
 
 	async resetActivites() {
@@ -144,17 +202,19 @@ export default class ActivityTracker extends Plugin {
 		}
 
 		this.activityButtons = [];
-		this.statusBarItem.remove();
-		this.statusBarItem = this.addStatusBarItem();
+		this.weeklyStatusBarItem.remove();
+		this.weeklyStatusBarItem = this.addStatusBarItem();
+		this.dailyStatusBarItem.remove();
+		this.dailyStatusBarItem = this.addStatusBarItem();
 		this.createActivities();
 	}
 
 	async tryUpdateActivityValue(abstractFile : TAbstractFile) {
-		
 		let thisFile = this.app.metadataCache.getFirstLinkpathDest(abstractFile.name, "/");
-		let dataFile = this.app.metadataCache.getFirstLinkpathDest(this.settings.useWeekFile ? this.weekFileName : this.mondayFileName, "/");
+		let weeklyFile = this.app.metadataCache.getFirstLinkpathDest(this.settings.useWeekFile ? this.weekFileName : this.mondayFileName, "/");
+		let dailyFile = this.app.metadataCache.getFirstLinkpathDest(this.todayFileName, "/");
 
-		if (dataFile && thisFile) {
+		if (thisFile) {
 			let data = this.app.vault.process(thisFile, (string) => {
 				return string;
 			});
@@ -183,16 +243,38 @@ export default class ActivityTracker extends Plugin {
 						element.indexOf("}wgt%%")
 					));
 
-					//get the value for that metadata
-					let value = await this.getValue(metadataValue, dataFile, false);
+					let chosenFile;
+					if (this.getIfActivityIsDailyOrWeekly(metadataValue) == 'weekly') {
+						if (weeklyFile) {
+							chosenFile = weeklyFile;
+						} 
+						else {
+							this.displayErrorMessage(this.settings.useWeekFile ? this.weekFileName : this.mondayFileName);
+							return;
+						}
+					}
+					else if (this.getIfActivityIsDailyOrWeekly(metadataValue) == 'daily') {
+						if (dailyFile) {
+							chosenFile = dailyFile;
+						} 
+						else {
+							this.displayErrorMessage(this.todayFileName);
+							return;
+						}
+					}
 
-					//change value
-					let int = element.contains(`%%wgt@[`) ? -weight : weight;
-					value = `${parseInt(value) + int}`;
+					if (chosenFile) {
+						//get the value for that metadata
+						let value = await this.getValue(metadataValue, chosenFile, false);
 
-					this.app.fileManager.processFrontMatter(dataFile, (frontmatter) => {
-						frontmatter[metadataValue] = parseInt(value);
-					})
+						//change value
+						let int = element.contains(`%%wgt@[`) ? -weight : weight;
+						value = `${parseInt(value) + int}`;
+
+						this.app.fileManager.processFrontMatter(chosenFile, (frontmatter) => {
+							frontmatter[metadataValue] = parseInt(value);
+						})
+					}
 
 					//change the value of the line
 					if (element.contains(`%%wgt@[`)) {
@@ -218,15 +300,18 @@ export default class ActivityTracker extends Plugin {
 			});
 		}
 		else {
-			this.displayErrorMessage();
+			this.displayErrorMessage(abstractFile.name);
 		}
 	}
 
-	async createActivity(metadataValue : string, emoji : string, maxValue : number, startColor : string, endColor : string, file : TFile) {
+	async createActivity(metadataValue : string, emoji : string, maxValue : number, startColor : string, endColor : string, weeklyFile : TFile, dailyFile : TFile) {
+		let file = this.getIfActivityIsDailyOrWeekly(metadataValue) == 'weekly' ? weeklyFile : dailyFile;
+		console.log(this.getIfActivityIsDailyOrWeekly(metadataValue));
+
 		//create status bar element
-		let statusBarButton = this.statusBarItem.createEl('button');
+		let statusBarButton = this.getIfActivityIsDailyOrWeekly(metadataValue)=='weekly'?this.weeklyStatusBarItem.createEl('button'):this.dailyStatusBarItem.createEl('button');
 		this.activityButtons.push(statusBarButton);
-		statusBarButton.addClass("statusBarButton");
+		statusBarButton.addClass(this.getIfActivityIsDailyOrWeekly(metadataValue)=='weekly'?"weeklyStatusBarButton":"dailyStatusBarButton");
 
 		//when the button is left clicked
 		statusBarButton.addEventListener('click', async () => {	
@@ -340,6 +425,18 @@ export default class ActivityTracker extends Plugin {
 		return data;
 	}
 
+	getIfActivityIsDailyOrWeekly(metadataValue : string) : string {
+		let returnValue='';
+		this.settings.activities.forEach(element => {
+			if (element.name == metadataValue) {
+				returnValue =  element.frequency;
+				return;
+			}
+		});
+
+		return returnValue;
+	}
+
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
@@ -352,13 +449,15 @@ export default class ActivityTracker extends Plugin {
 }
 
 export class Activity {
+	frequency : string;
 	name : string;
 	emoji : string;
 	max : string;
 	startColor : string;
 	endColor : string;
 
-	constructor(name: string, emoji : string, max: string, startColor: string, endColor: string) {
+	constructor(name: string, emoji : string, max: string, startColor: string, endColor: string, frequency : string) {
+		this.frequency = frequency;
 		this.name = name;
 		this.emoji = emoji;
 		this.max = max;
@@ -419,15 +518,17 @@ export class ActivityTrackerTab extends PluginSettingTab {
 		);	
 
 		new Setting(containerEl)
-			.setName('Use weekly note?')
-			.setDesc("Decides whether or not to use the weekly note instead of the monday note (typically in the format eg.2024-W48)")
-		  	.addToggle((toggle) =>
-			toggle
-			  	.setValue(this.plugin.settings.useWeekFile)
-			  	.onChange(async (value) => {
-					this.plugin.settings.useWeekFile = value;
+			.setName('Monday note or weekly note for weekly goals?')
+			.setDesc("Decides whether to use the monday note or the weekly note (typically in the format eg.2024-W48) to store the data for weekly goals. Daily goals are always stored in the current daily note")
+			.addDropdown((dropdown) =>
+			dropdown
+				.addOption('monday', 'Monday file')
+				.addOption('week', 'Weekly file')
+				.setValue(this.plugin.settings.useWeekFile?'week':'monday')
+				.onChange(async (value) => {
+					this.plugin.settings.useWeekFile = (value == 'monday'?false:true);
 					await this.plugin.saveSettings();
-			  })
+				})
 		  );	
 
 		new Setting(containerEl)
@@ -436,8 +537,22 @@ export class ActivityTrackerTab extends PluginSettingTab {
 		
 	  	this.plugin.settings.activities.map((activity, index) => {
 			new Setting(containerEl)
+      			.setName('Daily or weekly goal?')
+      			.setDesc("Should this goal reset daily or weekly")
+				.addDropdown((dropdown) =>
+				dropdown
+					.addOption('weekly', 'Weekly')
+					.addOption('daily', 'Daily')
+					.setValue(activity.frequency)
+					.onChange(async (value) => {
+						activity.frequency = value;
+						await this.plugin.saveSettings();
+				  })
+				)
+
+			new Setting(containerEl)
       			.setName('Frontmatter value')
-      			.setDesc("Value in the file's frontmatter. NOTE - changing this will not update the name in the frontmatter and instead just create a new property")
+      			.setDesc("Value in the file's frontmatter. Note changing this will not update the name in the frontmatter and instead just create a new property")
       			.addText((text) =>
         		text
           			.setPlaceholder('Insert name here')
@@ -536,6 +651,7 @@ export class ActivityTrackerTab extends PluginSettingTab {
 		new Setting(containerEl).addButton((el) =>
 			el.setButtonText("Add new activity").onClick(() => {
 				let newActivity = {
+					frequency: 'weekly',
 					name: `new_goal${this.plugin.settings.activities.length+1}`,
 					emoji: "✨",
 					max: "10",

@@ -1,12 +1,13 @@
-.statusBarButton {
+.weeklyStatusBarButton {
     padding : 0px 3px;
     margin : 0px 3px;
 }
 
-.modalButton {
-    background-color : var(--background-primary-alt);
+.dailyStatusBarButton {
+    padding : 0px 3px;
+    margin : 0px 3px;
 }
 
-.submitButton {
-    background-color : var(--background-secondary-alt);
+.container {
+    border-width: 5px;
 }

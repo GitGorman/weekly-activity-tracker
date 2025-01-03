@@ -1,9 +1,7 @@
 ## Weekly Goal Tracker Plugin for Obsidian
-This is a plugin for [Obsidian](https://obsidian.md) that allows you to add buttons to the status bar that allow you to track of different weekly goals and update them with ease. 
+This is a plugin for [Obsidian](https://obsidian.md) that allows you to add buttons to the status bar that allow you to track of different weekly/daily goals and update them with ease. 
 
-For example you could track a weekly exercise goal.
-
-The data is stored in the frontmatter of the Monday note for the current week or the current weekly note. 
+For example you could track a weekly exercise goal or a daily reading goal.
 
 ![](Images/demo1.gif)
 ## Buttons
@@ -22,15 +20,15 @@ When the goal has been reached, the button displays in color
 ## Tasks
 Tasks can be attached to goals so that they increase its progress when completed
 
-In editor mode, use the 'Attach task to weekly goal' command to bring up a menu allowing you to choose a weekly goal and how many points it is worth (optional)
-
+In editor mode, use the 'Attach task to goal' command to bring up a menu allowing you to choose a goal and how many points the task is worth (optional)
 
 ![](Images/demo2.gif)
 ## General Settings
 - Hide numbers when button is closed? : Allows you to display the buttons with the icon only when it is closed
 - Allow tasks to be worth multiple points? : You will be given a prompt when attaching a task to a goal to input how many points it is worth
-- Use weekly note? : Allows you to use the weekly note (typically in the format eg.2024-W48) instead of the Monday note
+- Monday note or weekly note for weekly goals? : Decides whether to use the monday note or the weekly note (typically in the format eg.2024-W48) to store the data for weekly goals. Daily goals are always stored in the current daily note
 ## Activity Settings
+- Daily or weekly goal? : should this goal reset daily or weekly
 - Frontmatter value : the value in the frontmatter to read and write to
 - Icon : the icon displayed in the status bar button. I recommend using [Emojipedia](https://emojipedia.org/) to find icons
 - Goal : the weekly goal for activity
