@@ -292,7 +292,7 @@ export default class ActivityTracker extends Plugin {
 					}
 
 					//used so that button doesnt end up using old value
-					await new Promise(f => setTimeout(f, 50));
+					await new Promise(f => setTimeout(f, 500));
 					this.resetActivites();
 
 					return;
@@ -652,7 +652,7 @@ export class ActivityTrackerTab extends PluginSettingTab {
 			el.setButtonText("Add new activity").onClick(() => {
 				let newActivity = {
 					frequency: 'weekly',
-					name: `new_goal${this.plugin.settings.activities.length+1}`,
+					name: `newgoal${this.plugin.settings.activities.length+1}`,
 					emoji: "✨",
 					max: "10",
 					startColor: "#FFFFFF",
